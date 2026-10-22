@@ -1,12 +1,23 @@
 #!/bin/bash
-# Usage: mgt [new|edit|delete] command_name
+# Usage: mgt [new|edit|delete|list] command_name
 ACTION="$1"
 NAME="$2"
 DIR="${MGT_BIN_DIR:-$(cd "$(dirname "$(readlink -f "$0")")" && pwd)}"
 EDITOR_CMD="${MGT_EDITOR:-nano}"
+USAGE="Usage: mgt [new|edit|delete] command_name | mgt list"
+
+if [ "$ACTION" = "list" ]; then
+  echo "Commands in $DIR:"
+  for f in "$DIR"/*; do
+    [ -f "$f" ] && [ -x "$f" ] || continue
+    desc=$(sed -n '2s/^#[[:space:]]*//p' "$f")
+    printf '  %-12s %s\n' "$(basename "$f")" "$desc"
+  done
+  exit 0
+fi
 
 if [ -z "$ACTION" ] || [ -z "$NAME" ]; then
-  echo "Usage: mgt [new|edit|delete] command_name" >&2
+  echo "$USAGE" >&2
   exit 1
 fi
 FILE="$DIR/$NAME"
@@ -42,7 +53,7 @@ case "$ACTION" in
     esac
     ;;
   *)
-    echo "Usage: mgt [new|edit|delete] command_name" >&2
+    echo "$USAGE" >&2
     exit 1
     ;;
 esac
