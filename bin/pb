@@ -1,0 +1,10 @@
+#!/bin/bash
+# Usage: pb [branch_name]
+DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+
+if [ -z "$1" ]; then
+  git pull
+else
+  BRANCH=$("$DIR/sb" "$1") || exit 1
+  git pull origin "$BRANCH"
+fi

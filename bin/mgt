@@ -1,0 +1,48 @@
+#!/bin/bash
+# Usage: mgt [new|edit|delete] command_name
+ACTION="$1"
+NAME="$2"
+DIR="${MGT_BIN_DIR:-$(cd "$(dirname "$(readlink -f "$0")")" && pwd)}"
+EDITOR_CMD="${MGT_EDITOR:-nano}"
+
+if [ -z "$ACTION" ] || [ -z "$NAME" ]; then
+  echo "Usage: mgt [new|edit|delete] command_name" >&2
+  exit 1
+fi
+FILE="$DIR/$NAME"
+
+case "$ACTION" in
+  new)
+    if [ -e "$FILE" ]; then
+      echo "$FILE already exists. Use: mgt edit $NAME" >&2
+      exit 1
+    fi
+    printf '#!/bin/bash\n\n' > "$FILE"
+    chmod a+x "$FILE"
+    "$EDITOR_CMD" +2 "$FILE"
+    chmod a+x "$FILE"
+    ;;
+  edit)
+    if [ ! -e "$FILE" ]; then
+      echo "$FILE not found. Use: mgt new $NAME" >&2
+      exit 1
+    fi
+    "$EDITOR_CMD" "$FILE"
+    chmod a+x "$FILE"
+    ;;
+  delete)
+    if [ ! -e "$FILE" ]; then
+      echo "$FILE not found." >&2
+      exit 1
+    fi
+    read -r -p "Delete $FILE? [y/N] " ans
+    case "$ans" in
+      y|Y) rm -- "$FILE" && echo "Deleted $NAME" ;;
+      *) echo "Cancelled" ;;
+    esac
+    ;;
+  *)
+    echo "Usage: mgt [new|edit|delete] command_name" >&2
+    exit 1
+    ;;
+esac
