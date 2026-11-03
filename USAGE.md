@@ -12,6 +12,7 @@ See [README.md](README.md) for installation instructions. Run Git helpers inside
 | lb | `lb` | List local branches |
 | mgt | `mgt new/edit/delete name` or `mgt list` | Manage local helper scripts |
 | pb | `pb [branch_name]` | Pull changes into the current branch |
+| po | `po branch_name` | Push a local branch to origin and set upstream |
 | sb | `sb branch_name` | Print a matching branch name |
 | install.sh | `bash install.sh [install_dir]` | Install helpers and configure PATH |
 | update.sh | `bash update.sh [install_dir]` | Refresh installed helpers using a temporary clone |
@@ -71,6 +72,16 @@ pb login
 With no argument, runs `git pull`. With an argument, runs `git pull origin` with the name resolved by the adjacent `sb` helper.
 
 This pulls changes into the current branch; it does not switch to the named branch. Pull reconciliation follows your Git configuration and may require conflict resolution. `pb` means pull, not push.
+
+## po: push a local branch to origin
+
+```bash
+po feature/login
+```
+
+Pushes the exact local branch to the same-named branch on `origin` and sets its upstream, equivalent to `git push -u origin feature/login` for this example. The script uses an explicit branch-to-branch refspec to avoid ambiguity with tags.
+
+Requires exactly one valid, existing local branch name. Does not use `sb`, partial matching, force-push, or a default branch. Does not switch branches; it can push a local branch other than the currently checked-out one. Requires an `origin` remote and permission to push. Git reports authentication, network, and rejected-push errors directly.
 
 ## db: delete a local branch
 
