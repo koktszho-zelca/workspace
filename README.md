@@ -1,6 +1,6 @@
 # Workspace
 
-A command manager with an opt-in, locally bundled Git shortcuts plugin. See the [Git shortcuts usage guide](bin/git-shortcuts/USAGE.md) for Git command examples and behavior.
+A command manager with an opt-in, locally bundled Git shortcuts plugin. See the [Git shortcuts usage guide](bin/git-shortcuts/README.md) for Git command examples and behavior.
 
 ## Requirements
 
@@ -87,7 +87,7 @@ bin/
     pb
     po
     sb
-    USAGE.md
+    README.md
 install.sh
 update.sh
 README.md
