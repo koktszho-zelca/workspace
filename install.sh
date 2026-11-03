@@ -1,18 +1,39 @@
 #!/bin/bash
 # Usage: ./install.sh [install_dir]
-# With install_dir: copies bin/* into it and adds it to PATH.
-# Without: uses the bin folder inside this git clone.
+# Also supports: curl -fsSL https://raw.githubusercontent.com/koktszho-zelca/workspace/main/install.sh | bash -s -- [install_dir]
+# Reuses an adjacent bin directory, otherwise clones into ~/.local/share/workspace.
 set -e
 
-REPO_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
-SRC_BIN="$REPO_DIR/bin"
+REPO_URL="https://github.com/koktszho-zelca/workspace.git"
+SCRIPT_PATH="${BASH_SOURCE[0]:-}"
+REPO_DIR=""
 
+if [ -n "$SCRIPT_PATH" ] && [ -f "$SCRIPT_PATH" ]; then
+  REPO_DIR="$(cd "$(dirname "$(readlink -f "$SCRIPT_PATH")")" && pwd)"
+fi
+
+if [ -z "$REPO_DIR" ] || [ ! -d "$REPO_DIR/bin" ]; then
+  command -v git >/dev/null 2>&1 || {
+    echo "Git is required. Please install git and try again." >&2
+    exit 1
+  }
+  REPO_DIR="$HOME/.local/share/workspace"
+  if [ -e "$REPO_DIR" ] || [ -L "$REPO_DIR" ]; then
+    echo "Clone destination already exists: $REPO_DIR" >&2
+    echo "Run its install.sh if it is a workspace checkout, or choose a different location by cloning manually." >&2
+    exit 1
+  fi
+  mkdir -p "$(dirname "$REPO_DIR")"
+  git clone --depth 1 --branch main "$REPO_URL" "$REPO_DIR"
+fi
+
+SRC_BIN="$REPO_DIR/bin"
 if [ ! -d "$SRC_BIN" ]; then
   echo "bin folder not found at $SRC_BIN" >&2
   exit 1
 fi
 
-if [ -n "$1" ]; then
+if [ -n "${1:-}" ]; then
   TARGET="${1/#\~/$HOME}"
   mkdir -p "$TARGET"
   TARGET="$(cd "$TARGET" && pwd)"
