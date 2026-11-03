@@ -33,7 +33,8 @@ if [ "$TARGET" != "$REPO_DIR/bin" ]; then
   cp -f "$REPO_DIR/bin/mgt" "$TARGET/mgt"
 fi
 chmod a+x "$TARGET/mgt"
-for FILE in "$REPO_DIR/bin/git-shortcuts"/*; do
+for COMMAND in cb co db lb pb po sb; do
+  FILE="$REPO_DIR/bin/git-shortcuts/$COMMAND"
   [ -f "$FILE" ] && [ ! -L "$FILE" ] || { echo "Invalid plugin file: $FILE" >&2; exit 1; }
   DEST="$BUNDLE/$(basename "$FILE")"
   [ ! -L "$DEST" ] || { echo "Refusing symlink: $DEST" >&2; exit 1; }

@@ -25,9 +25,10 @@ if [ "$ACTION" = plugin ]; then
       SOURCE="$SELF_DIR/.mgt/plugins/git-shortcuts"
       [ -d "$SOURCE" ] || SOURCE="$SELF_DIR/git-shortcuts"
       [ -d "$SOURCE" ] || { echo "Missing git-shortcuts bundle; reinstall mgt." >&2; exit 1; }
-      shopt -s nullglob
-      FILES=("$SOURCE"/*)
-      [ "${#FILES[@]}" -gt 0 ] || { echo "Plugin bundle is empty." >&2; exit 1; }
+      FILES=()
+      for COMMAND in cb co db lb pb po sb; do
+        FILES+=("$SOURCE/$COMMAND")
+      done
       mkdir -p "$DIR"
       for FILE in "${FILES[@]}"; do
         [ -f "$FILE" ] && [ ! -L "$FILE" ] || { echo "Invalid bundle file: $FILE" >&2; exit 1; }
