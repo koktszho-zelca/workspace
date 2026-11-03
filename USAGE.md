@@ -7,7 +7,7 @@ See [README.md](README.md) for installation instructions. Run Git helpers inside
 | Script | Usage | Purpose |
 | --- | --- | --- |
 | cb | `cb` | Copy the current branch name to the clipboard |
-| co | `co branch_name` | Resolve a branch name and check it out |
+| co | `co branch_name` or `co -M new_branch_name` | Check out a matching branch or force-rename the current branch |
 | db | `db [-f\|--force] branch_name` | Search local branches and delete a unique match |
 | lb | `lb` | List local branches |
 | mgt | `mgt new/edit/delete name` or `mgt list` | Manage local helper scripts |
@@ -49,7 +49,9 @@ Search order:
 
 Prints the branch name without an `origin/` prefix or trailing newline. Exits with status 1 when no match exists. Does not fetch from the remote. Unlike `db`, multiple partial matches do not produce an ambiguity warning: the first is selected.
 
-## co: check out a matching branch
+## co: check out or rename a branch
+
+### Check out a matching branch
 
 ```bash
 co feature/login
@@ -57,6 +59,17 @@ co login
 ```
 
 Resolves the argument using the adjacent `sb` helper, then runs `git checkout` with the resolved name. Inherits `sb`'s local-first matching and cached-origin fallback. Checkout success and remote-branch tracking behavior depend on Git and repository configuration; the helper does not explicitly create a tracking branch.
+
+### Force-rename the current local branch
+
+```bash
+co -M feature/new-name
+# Equivalent to: git branch -M feature/new-name
+```
+
+Requires `-M` followed by exactly one valid new branch name. Uses the name literally, without `sb` lookup or partial matching. Renames the current local branch; it does not check out another branch or rename a branch on the remote server.
+
+Warning: `-M` forces the rename and can replace an existing local branch with the target name, subject to Git's restrictions. Check the target name before running it. This mode does not push changes to `origin`.
 
 ## pb: pull changes
 
