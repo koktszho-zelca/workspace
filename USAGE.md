@@ -1,181 +1,122 @@
 # Script usage
 
-See [README.md](README.md) for installation instructions. Run Git helpers inside the Git repository you want to work with. Examples assume the helper scripts are installed and on PATH.
+See [README.md](README.md) for installation, update, migration, and requirements.
+
+## Enable the bundled Git helpers
+
+```bash
+mgt plugin list
+mgt plugin install git-shortcuts
+mgt plugin install git-shortcuts --force
+```
+
+Fresh installation exposes only mgt. Activation copies the local bundle into the command directory and records an enabled marker under `.mgt/enabled/git-shortcuts`. It needs no network. All destination conflicts are checked before copying. Identical files are accepted; differing files require `--force`. Symlinks and non-file destinations are refused. Copy failures can still leave a partially installed plugin. There is no plugin uninstall command yet.
 
 ## Quick reference
 
-| Script | Usage | Purpose |
+| Command | Usage | Purpose |
 | --- | --- | --- |
-| cb | `cb` | Copy the current branch name to the clipboard |
-| co | `co branch_name` or `co -M new_branch_name` | Check out a matching branch or force-rename the current branch |
-| db | `db [-f\|--force] branch_name` | Search local branches and delete a unique match |
+| mgt | `mgt list` | List executable files in the command directory |
+| cb | `cb` | Copy current branch name to the clipboard |
+| co | `co branch_name` | Find and check out a branch |
+| co | `co -M new_branch_name` | Force-rename the current local branch |
+| db | `db [-f\|--force] branch_name` | Find and delete a local branch |
 | lb | `lb` | List local branches |
-| mgt | `mgt new/edit/delete name` or `mgt list` | Manage local helper scripts |
 | pb | `pb [branch_name]` | Pull changes into the current branch |
-| po | `po branch_name` | Push a local branch to origin and set upstream |
+| po | `po branch_name` | Push a local branch and set its upstream |
 | sb | `sb branch_name` | Print a matching branch name |
-| install.sh | `bash install.sh [install_dir]` | Install helpers and configure PATH |
-| update.sh | `bash update.sh [install_dir]` | Refresh installed helpers using a temporary clone |
 
-## cb: copy the current branch name
+Run Git helpers inside the repository you want to work with.
 
-```bash
-cb
-```
-
-Uses the first available clipboard tool: `pbcopy`, `wl-copy`, `xclip`, or `clip.exe`. On success, prints `Copied: branch-name`. If no clipboard tool is available, prints an error and the branch name, then exits with status 1. In detached HEAD state, Git reports `HEAD` instead of a branch name.
-
-## lb: list local branches
-
-```bash
-lb
-```
-
-Runs `git branch`. It does not list remote branches.
-
-## sb: search for a branch
-
-```bash
-sb feature/login
-sb login
-```
-
-Search order:
-
-1. Exact local branch name.
-2. First case-insensitive local substring match.
-3. If there is no local match, exact name among cached `origin` branches.
-4. First case-insensitive substring match among cached `origin` branches.
-
-Prints the branch name without an `origin/` prefix or trailing newline. Exits with status 1 when no match exists. Does not fetch from the remote. Unlike `db`, multiple partial matches do not produce an ambiguity warning: the first is selected.
-
-## co: check out or rename a branch
-
-### Check out a matching branch
-
-```bash
-co feature/login
-co login
-```
-
-Resolves the argument using the adjacent `sb` helper, then runs `git checkout` with the resolved name. Inherits `sb`'s local-first matching and cached-origin fallback. Checkout success and remote-branch tracking behavior depend on Git and repository configuration; the helper does not explicitly create a tracking branch.
-
-### Force-rename the current local branch
-
-```bash
-co -M feature/new-name
-# Equivalent to: git branch -M feature/new-name
-```
-
-Requires `-M` followed by exactly one valid new branch name. Uses the name literally, without `sb` lookup or partial matching. Renames the current local branch; it does not check out another branch or rename a branch on the remote server.
-
-Warning: `-M` forces the rename and can replace an existing local branch with the target name, subject to Git's restrictions. Check the target name before running it. This mode does not push changes to `origin`.
-
-## pb: pull changes
-
-```bash
-# Pull using the current branch's configured upstream:
-pb
-
-# Resolve a name using sb, then pull from origin:
-pb feature/login
-pb login
-```
-
-With no argument, runs `git pull`. With an argument, runs `git pull origin` with the name resolved by the adjacent `sb` helper.
-
-This pulls changes into the current branch; it does not switch to the named branch. Pull reconciliation follows your Git configuration and may require conflict resolution. `pb` means pull, not push.
-
-## po: push a local branch to origin
-
-```bash
-po feature/login
-```
-
-Pushes the exact local branch to the same-named branch on `origin` and sets its upstream, equivalent to `git push -u origin feature/login` for this example. The script uses an explicit branch-to-branch refspec to avoid ambiguity with tags.
-
-Requires exactly one valid, existing local branch name. Does not use `sb`, partial matching, force-push, or a default branch. Does not switch branches; it can push a local branch other than the currently checked-out one. Requires an `origin` remote and permission to push. Git reports authentication, network, and rejected-push errors directly.
-
-## db: delete a local branch
-
-```bash
-# Normal deletion:
-db feature/login
-
-# Partial name, provided it identifies one local branch:
-db login
-
-# Force deletion; flags work before or after the name:
-db -f login
-db login -f
-db --force login
-db login --force
-```
-
-Searches local branches only, never `origin` or other remote-tracking branches. Prefers an exact case-sensitive name; otherwise uses case-insensitive substring matching.
-
-- No match: prints an error and exits without deleting anything.
-- One match: runs `git branch -d -- matched-name`.
-- Multiple partial matches: lists every match and exits without deleting anything, even with a force flag.
-- An exact match takes priority over other partial matches.
-
-`-f` or `--force` uses `git branch -D` instead of `-d`, allowing deletion of an unmerged local branch. Git still enforces its other restrictions. This never deletes a branch on the remote server.
-
-Example ambiguity message:
-
-```text
-Multiple local branches match 'login'; use an exact name:
-  feature/login
-  fix/login-error
-```
-
-Then specify the exact name, for example `db feature/login`.
-
-## mgt: manage helper scripts
+## mgt: manage local scripts
 
 ```bash
 mgt list
 mgt new my-helper
 mgt edit my-helper
 mgt delete my-helper
+MGT_EDITOR=vim mgt edit my-helper
+MGT_BIN_DIR="$HOME/tools/bin" mgt list
 ```
 
-- `list`: shows executable files and descriptions taken from their second line, stripping a leading comment marker.
-- `new`: creates a Bash script, opens the editor, and makes the file executable. Refuses to overwrite an existing file.
-- `edit`: opens an existing file and makes it executable afterward.
-- `delete`: asks for confirmation; only `y` or `Y` deletes the file.
+Defaults to the directory containing mgt and the nano editor. New/edit operations make files executable. Delete requires y or Y confirmation. List shows executable files with their second-line comments as descriptions. Use simple filenames, not paths. MGT_EDITOR names an editor executable, without embedded arguments. MGT_BIN_DIR changes the destination command directory, including plugin activation; the bundle is located relative to mgt itself. That custom destination must already be on PATH to invoke its commands directly. Local edits are not committed or pushed.
 
-Defaults to the directory containing `mgt` and the `nano` editor. Override them with:
+## cb: clipboard
 
 ```bash
-MGT_EDITOR=vim mgt edit my-helper
-MGT_BIN_DIR="$HOME/.local/bin" mgt list
+cb
 ```
 
-`MGT_EDITOR` should name an editor executable, not a command with embedded arguments. Use simple helper filenames, not paths. Changes are local; `mgt` does not commit or push them. Updates overwrite local changes to same-named repository scripts.
+Uses the first available tool: pbcopy, wl-copy, xclip, or clip.exe. Prints `Copied: branch-name` on success. If none exists, prints an error and the branch name and exits with status 1. Detached HEAD reports HEAD rather than a branch name.
 
-## install.sh: install helpers
+## lb: list branches
+
+```bash
+lb
+```
+
+Runs `git branch`, listing local branches only.
+
+## sb: find a branch
+
+```bash
+sb feature/login
+sb login
+```
+
+Searches local branches first: exact name, then the first case-insensitive substring match. Only if no local match exists, searches cached origin branches the same way. Does not fetch. Prints the name without origin/ or a trailing newline. No match exits with status 1. Multiple partial matches select the first; unlike db, sb does not reject ambiguity.
+
+## co: checkout or rename
+
+```bash
+co login
+co feature/login
+co -M feature/new-name
+```
+
+Normal mode resolves the name using the adjacent sb and runs git checkout. It inherits sb's local-first search and cached-origin fallback. Remote tracking behavior depends on Git configuration.
+
+`co -M new-name` runs `git branch -M -- new-name` directly, without lookup. It requires exactly one valid new name and force-renames the current local branch. It can replace an existing local target branch, subject to Git restrictions. It does not rename anything on the remote or push changes.
+
+## db: delete a local branch
+
+```bash
+db feature/login
+db login
+db -f login
+db login -f
+db --force login
+db login --force
+```
+
+Searches local branches only. Exact case-sensitive names take priority over case-insensitive substring matches. Zero matches reports an error. Multiple partial matches lists every match and exits without deleting anything, even with force. Specify an exact name to resolve ambiguity.
+
+Normal mode runs `git branch -d -- matched-name`. Force uses `-D`, allowing deletion of an unmerged branch while retaining Git's other restrictions. Flags may appear before or after the name. Remote server branches are never deleted.
+
+## pb: pull, not push
+
+```bash
+pb
+pb login
+```
+
+Without an argument runs git pull using the configured upstream. With an argument resolves through sb and runs `git pull origin resolved-name`. This pulls into the current branch, not the named branch, and never switches branches. Git configuration governs reconciliation; conflicts may require resolution.
+
+## po: push and set upstream
+
+```bash
+po feature/login
+```
+
+Requires exactly one valid existing local branch name. Pushes that branch to the same-named branch on origin and sets upstream, using an explicit branch-to-branch refspec. Equivalent to `git push -u origin feature/login` for this example. No partial matching, force-push, or default branch. Does not switch branches. Requires origin and push permission; Git reports authentication, network, and rejected-push errors.
+
+## Install and update
 
 ```bash
 bash install.sh
-bash install.sh "$HOME/.local/bin"
-```
-
-Reuses an adjacent `bin` directory when present. Otherwise clones the public repository's `main` branch into `~/.local/share/workspace`. Without a destination argument, uses the checkout's `bin` directory; with an argument, copies `bin/*` there. Makes scripts executable and adds the destination to `.zshrc` or `.bashrc` based on `$SHELL`.
-
-Standalone installation stops if the clone destination already exists. It does not automatically pull updates. Reload the appropriate shell configuration or open a new terminal after installation. Custom destinations are not saved for automatic discovery by the updater.
-
-## update.sh: update installed helpers
-
-```bash
+bash install.sh "$HOME/tools/bin"
 bash update.sh
-bash update.sh "$HOME/.local/bin"
+bash update.sh "$HOME/tools/bin"
 ```
 
-Requires an existing destination directory. Without an argument, uses the adjacent `bin` directory if available; otherwise uses `~/.local/share/workspace/bin`. For custom installations, pass the same destination used during installation.
-
-Clones `main` into a temporary directory, copies `bin/*` to the destination, makes copied scripts executable, and cleans up the temporary clone on exit. Overwrites matching files, including local modifications. Leaves unrelated files and scripts removed from the repository untouched.
-
-Does not update root-level files such as `install.sh`, `update.sh`, or documentation, and does not change PATH. Copies files individually, so a copy error can leave a partially updated destination.
-
-For remote installation and update commands, see [README.md](README.md). Review remote scripts before executing them.
+New default destination: ~/.local/bin. Existing legacy default ~/.local/share/workspace/bin is reused when mgt is present there. Custom destinations must be passed explicitly; they are not discovered automatically. Installer installs mgt and a hidden plugin bundle, adds the destination to shell startup PATH, and preserves existing helper commands. Updater clones into a temporary directory, refreshes the manager and bundle, and updates enabled plugins or existing legacy helper filenames. Local modifications may be overwritten. Unrelated files remain; removed upstream scripts are not automatically deleted. Root-level documentation and installer/updater files are not refreshed. Use the remote commands in README for old-checkout migration.

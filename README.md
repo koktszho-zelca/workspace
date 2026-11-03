@@ -1,113 +1,83 @@
 # Workspace
 
-Command-line helper scripts for your development workspace.
+A command manager with an opt-in, locally bundled Git shortcuts plugin. See [USAGE.md](USAGE.md) for every command.
 
 ## Requirements
 
-- Bash and Git.
-- curl for the one-line installer and updater.
-- Standard command-line utilities, including readlink with support for `-f` and mktemp.
-- Write access to the destination directory; installation also requires write access to your shell configuration file.
+Bash, Git, and standard utilities including `readlink -f`, `mktemp`, `cmp`, and `sed`. Remote one-line commands also require curl. The installer needs write access to its destination and your shell configuration.
 
-## Quick install
+## Install mgt
 
-Review `install.sh` before running remote code. To install:
+Review remote scripts before executing them.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/koktszho-zelca/workspace/main/install.sh | bash
 ```
 
-The installer clones the public repository over HTTPS into `~/.local/share/workspace` and adds its `bin` directory to PATH. No GitHub authentication is needed for the public clone.
+Fresh installations use `~/.local/bin`. Only `mgt` is exposed as a command. The Git helpers are bundled under `<install_dir>/.mgt/plugins/git-shortcuts`, outside PATH, ready for offline activation.
 
-Open a new terminal after installation, or reload your shell configuration:
-
-```bash
-# Bash
-source ~/.bashrc
-
-# Zsh
-source ~/.zshrc
-```
-
-Run only the command for your shell.
-
-## Install into a custom directory
+The installer adds the destination to `.zshrc` when `$SHELL` identifies Zsh, otherwise `.bashrc`. Open a new terminal or source the appropriate file.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/koktszho-zelca/workspace/main/install.sh | bash -s -- "$HOME/.local/bin"
+mgt plugin list
+mgt plugin install git-shortcuts
+mgt list
 ```
 
-The repository is still cloned into `~/.local/share/workspace`. The helper scripts are copied into the specified directory, made executable, and that directory is added to PATH. Existing same-named files in the target directory are overwritten.
-
-## Install from a local checkout
+Plugin installation copies `cb`, `co`, `db`, `lb`, `pb`, `po`, and `sb` into the directory containing mgt. Identical existing files are accepted; conflicting files require explicit `--force`. Symlink and non-file destinations are refused.
 
 ```bash
-git clone https://github.com/koktszho-zelca/workspace.git
-cd workspace
-bash install.sh
+# Overwrites conflicting helper files; back up local changes first:
+mgt plugin install git-shortcuts --force
 ```
 
-When run from a checkout, the installer reuses its adjacent `bin` directory instead of cloning again. You can also copy scripts into a custom directory:
+## Custom destination or local checkout
 
 ```bash
-bash install.sh "$HOME/.local/bin"
+curl -fsSL https://raw.githubusercontent.com/koktszho-zelca/workspace/main/install.sh | bash -s -- "$HOME/tools/bin"
+
+# From a repository checkout:
+bash install.sh "$HOME/tools/bin"
 ```
 
-## Installer behavior
+Omitting the destination no longer installs directly into a source checkout's bin directory. New installs use `~/.local/bin`. An existing legacy default at `~/.local/share/workspace/bin/mgt` takes priority and is reused. Pass custom destinations explicitly to both installer and updater.
 
-- Standalone installation clones the `main` branch with `--depth 1`.
-- If `~/.local/share/workspace` already exists, standalone installation stops rather than overwriting it. For an existing checkout, run its installer directly:
-
-  ```bash
-  bash "$HOME/.local/share/workspace/install.sh"
-  ```
-
-- The installer does not automatically pull updates to an existing checkout. Use the updater below to refresh installed helper scripts.
-- PATH is configured in `~/.zshrc` when `$SHELL` identifies Zsh; otherwise it uses `~/.bashrc`.
-- An identical PATH configuration line is not added twice.
-
-## Updating
-
-Review `update.sh` before running remote code.
-
-### Default installation
+## Update
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/koktszho-zelca/workspace/main/update.sh | bash
+
+# Custom destination:
+curl -fsSL https://raw.githubusercontent.com/koktszho-zelca/workspace/main/update.sh | bash -s -- "$HOME/tools/bin"
 ```
 
-When piped into Bash without an argument, the updater targets `~/.local/share/workspace/bin`.
+The updater requires an existing mgt installation. It clones main into a temporary directory, refreshes mgt and the bundled plugin, and cleans up the clone on exit. It reuses the legacy default when present, otherwise `~/.local/bin`.
 
-### Custom installation directory
+Enabled plugins are refreshed. Existing legacy Git helpers remain available and are updated individually, without enabling previously absent helpers. Legacy detection uses the known filenames `cb`, `co`, `db`, `lb`, `pb`, `po`, and `sb`; same-named regular files are treated as legacy helpers and may be overwritten. Back up local modifications before updating. Unrelated files are retained. Updates copy files individually and are not atomic.
 
-Pass the same destination used during installation:
+## Repository layout
+
+```text
+bin/
+  mgt
+  git-shortcuts/
+    cb co db lb pb po sb
+install.sh
+update.sh
+README.md
+USAGE.md
+```
+
+For migration compatibility, old flat copies of the Git helpers are retained in `bin/` for now. The new installer ignores them and uses `bin/git-shortcuts/` as the plugin source. Existing enabled commands are not removed.
+
+## Local script management
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/koktszho-zelca/workspace/main/update.sh | bash -s -- "$HOME/.local/bin"
+mgt new my-helper
+mgt edit my-helper
+mgt delete my-helper
 ```
 
-The installer does not save custom destination choices, so the updater cannot discover them automatically.
+## Notes
 
-### From a local checkout
-
-If `update.sh` is present in your checkout, run:
-
-```bash
-bash update.sh
-
-# Or specify your installed scripts directory:
-bash update.sh "$HOME/.local/bin"
-```
-
-Without an argument, a locally executed updater uses the adjacent `bin` directory when it exists; otherwise it falls back to `~/.local/share/workspace/bin`. For a checkout installed elsewhere, pass its `bin` directory explicitly when using the remote command.
-
-### Update behavior
-
-- Requires an existing destination directory; run the installer first if it does not exist.
-- Clones the latest `main` branch over HTTPS into a temporary directory with `--depth 1`.
-- Copies all scripts matched by `bin/*` into the destination and makes each copied file executable.
-- Overwrites same-named scripts, including local modifications. Back up changes you want to keep.
-- Leaves unrelated files and scripts removed from the repository untouched.
-- Cleans up the temporary clone on normal exit, errors, or handled interrupts.
-- Updates only helper scripts, not `install.sh`, `update.sh`, README files, Git metadata, or PATH configuration.
-- Copies files individually; an error during copying can leave a partially updated destination.
+Installation and update can overwrite mgt and cached bundle files. The installer preserves existing top-level Git helper commands; use the updater to refresh them. Root-level installer/updater files in old clones are not automatically replaced: use the remote update command above for migration. Old installer/updater versions do not understand the nested plugin layout.

@@ -1,59 +1,89 @@
 #!/bin/bash
-# Usage: mgt [new|edit|delete|list] command_name
-ACTION="$1"
-NAME="$2"
-DIR="${MGT_BIN_DIR:-$(cd "$(dirname "$(readlink -f "$0")")" && pwd)}"
+# Manage helper scripts and bundled plugins
+set -e
+SELF_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+DIR="${MGT_BIN_DIR:-$SELF_DIR}"
 EDITOR_CMD="${MGT_EDITOR:-nano}"
-USAGE="Usage: mgt [new|edit|delete] command_name | mgt list"
-
-if [ "$ACTION" = "list" ]; then
+usage() {
+  echo "Usage: mgt new|edit|delete name | mgt list | mgt plugin list | mgt plugin install git-shortcuts [--force]" >&2
+}
+ACTION="${1:-}"
+NAME="${2:-}"
+if [ "$ACTION" = plugin ]; then
+  case "$NAME" in
+    list)
+      [ "$#" -eq 2 ] || { usage; exit 1; }
+      if [ -f "$DIR/.mgt/enabled/git-shortcuts" ]; then
+        echo "git-shortcuts (enabled)"
+      else
+        echo "git-shortcuts (available; not enabled by mgt)"
+      fi
+      exit 0
+      ;;
+    install)
+      [ "${3:-}" = git-shortcuts ] && { [ "$#" -eq 3 ] || { [ "$#" -eq 4 ] && [ "$4" = --force ]; }; } || { usage; exit 1; }
+      SOURCE="$SELF_DIR/.mgt/plugins/git-shortcuts"
+      [ -d "$SOURCE" ] || SOURCE="$SELF_DIR/git-shortcuts"
+      [ -d "$SOURCE" ] || { echo "Missing git-shortcuts bundle; reinstall mgt." >&2; exit 1; }
+      shopt -s nullglob
+      FILES=("$SOURCE"/*)
+      [ "${#FILES[@]}" -gt 0 ] || { echo "Plugin bundle is empty." >&2; exit 1; }
+      mkdir -p "$DIR"
+      for FILE in "${FILES[@]}"; do
+        [ -f "$FILE" ] && [ ! -L "$FILE" ] || { echo "Invalid bundle file: $FILE" >&2; exit 1; }
+        DEST="$DIR/$(basename "$FILE")"
+        if [ -e "$DEST" ] || [ -L "$DEST" ]; then
+          if [ -L "$DEST" ] || [ ! -f "$DEST" ]; then
+            echo "Refusing non-regular destination: $DEST" >&2; exit 1
+          fi
+          if [ "${4:-}" != --force ] && ! cmp -s "$FILE" "$DEST"; then
+            echo "Command already exists: $DEST. Back it up or use --force to overwrite." >&2; exit 1
+          fi
+        fi
+      done
+      for FILE in "${FILES[@]}"; do
+        DEST="$DIR/$(basename "$FILE")"
+        cp -f "$FILE" "$DEST"
+        chmod a+x "$DEST"
+      done
+      mkdir -p "$DIR/.mgt/enabled"
+      touch "$DIR/.mgt/enabled/git-shortcuts"
+      echo "Enabled git-shortcuts in: $DIR"
+      exit 0
+      ;;
+    *) usage; exit 1 ;;
+  esac
+fi
+if [ "$ACTION" = list ]; then
+  [ "$#" -eq 1 ] || { usage; exit 1; }
   echo "Commands in $DIR:"
-  for f in "$DIR"/*; do
-    [ -f "$f" ] && [ -x "$f" ] || continue
-    desc=$(sed -n '2s/^#[[:space:]]*//p' "$f")
-    printf '  %-12s %s\n' "$(basename "$f")" "$desc"
+  for FILE in "$DIR"/*; do
+    [ -f "$FILE" ] && [ -x "$FILE" ] || continue
+    DESC=$(sed -n '2s/^#[[:space:]]*//p' "$FILE")
+    printf '  %-12s %s\n' "$(basename "$FILE")" "$DESC"
   done
   exit 0
 fi
-
-if [ -z "$ACTION" ] || [ -z "$NAME" ]; then
-  echo "$USAGE" >&2
-  exit 1
-fi
+[ "$#" -eq 2 ] && [ -n "$NAME" ] || { usage; exit 1; }
+case "$NAME" in .|..|*/*|-*) echo "Use a simple command filename." >&2; exit 1 ;; esac
 FILE="$DIR/$NAME"
-
 case "$ACTION" in
   new)
-    if [ -e "$FILE" ]; then
-      echo "$FILE already exists. Use: mgt edit $NAME" >&2
-      exit 1
-    fi
+    [ ! -e "$FILE" ] && [ ! -L "$FILE" ] || { echo "$FILE already exists." >&2; exit 1; }
     printf '#!/bin/bash\n\n' > "$FILE"
     chmod a+x "$FILE"
     "$EDITOR_CMD" +2 "$FILE"
     chmod a+x "$FILE"
     ;;
   edit)
-    if [ ! -e "$FILE" ]; then
-      echo "$FILE not found. Use: mgt new $NAME" >&2
-      exit 1
-    fi
+    [ -f "$FILE" ] || { echo "$FILE not found." >&2; exit 1; }
     "$EDITOR_CMD" "$FILE"
     chmod a+x "$FILE"
     ;;
   delete)
-    if [ ! -e "$FILE" ]; then
-      echo "$FILE not found." >&2
-      exit 1
-    fi
-    read -r -p "Delete $FILE? [y/N] " ans
-    case "$ans" in
-      y|Y) rm -- "$FILE" && echo "Deleted $NAME" ;;
-      *) echo "Cancelled" ;;
-    esac
+    [ -f "$FILE" ] || { echo "$FILE not found." >&2; exit 1; }
+    read -r -p "Delete $FILE? [y/N] " ANSWER || exit 1
+    case "$ANSWER" in y|Y) rm -- "$FILE"; echo "Deleted $NAME" ;; *) echo "Cancelled" ;; esac
     ;;
-  *)
-    echo "$USAGE" >&2
-    exit 1
-    ;;
+  *) usage; exit 1 ;;
 esac
